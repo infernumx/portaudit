@@ -6,6 +6,7 @@ from rich.prompt import Prompt
 from datetime import datetime
 from typing import List, Union
 from dataclasses import dataclass
+from threading import Lock, Event
 
 
 @dataclass
@@ -19,6 +20,8 @@ class PortScanner:
         self.ip: str = ip
         self.timeout: int = timeout
         self.ports: List[Port] = []
+        self.lock: Lock = Lock()
+        self.stop_event: Event = Event()
 
         self.load_ports()
 
@@ -33,23 +36,32 @@ class PortScanner:
                     self.ports.append(Port(int(port)))
 
     def scan_port(self, port: Port) -> None:
-        console.print(f"[#ff57c7]Scanning port {port.port}")
+        # Halt execution, should only happen when KeyboardInterrupt occurs
+        if self.stop_event.is_set():
+            return
+
+        with self.lock:
+            console.print(f"[#ff57c7]Scanning port {port.port}")
+
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
             sock.settimeout(self.timeout)
             if sock.connect_ex((self.ip, port.port)) == 0:
                 port.is_open = True
 
     def finish(self) -> None:
-        choice = Prompt.ask("Select option", choices=["dump", "print"], default="print")
-        if choice == "dump":
-            time = datetime.strftime(datetime.now(), "%H%M%S")
-            if not os.path.exists("dumps"):
-                os.mkdir("dumps")
-            with open(f"dumps/portaudit-{time}.txt", "w+") as f:
+        with self.lock:
+            choice = Prompt.ask(
+                "Select option", choices=["dump", "print"], default="print"
+            )
+            if choice == "dump":
+                time = datetime.strftime(datetime.now(), "%H%M%S")
+                if not os.path.exists("dumps"):
+                    os.mkdir("dumps")
+                with open(f"dumps/portaudit-{time}.txt", "w+") as f:
+                    for port in self.ports:
+                        if port.is_open:
+                            f.write(f"{port.port}\n")
+            elif choice == "print":
                 for port in self.ports:
                     if port.is_open:
-                        f.write(f"{port.port}\n")
-        elif choice == "print":
-            for port in self.ports:
-                if port.is_open:
-                    console.print(f"[green]{port.port}")
+                        console.print(f"[green]{port.port}")

@@ -11,8 +11,8 @@ import os
 def main(ip: str, timeout: Optional[int] = 1) -> None:
     if timeout is None:
         timeout = 1
+    scanner = PortScanner(ip, timeout)
     try:
-        scanner = PortScanner(ip, timeout)
         threads = []
 
         for port in scanner.ports:
@@ -22,9 +22,9 @@ def main(ip: str, timeout: Optional[int] = 1) -> None:
 
         for thread in threads:
             thread.join()
-
-        scanner.finish()
     except KeyboardInterrupt:
+        scanner.stop_event.set()
+    finally:
         scanner.finish()
 
 
