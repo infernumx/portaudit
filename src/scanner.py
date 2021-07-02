@@ -1,6 +1,9 @@
 import re
 import socket
+import os
 from src.console import console
+from rich.prompt import Prompt
+from datetime import datetime
 from typing import List, Union
 from dataclasses import dataclass
 
@@ -35,9 +38,18 @@ class PortScanner:
             sock.settimeout(self.timeout)
             if sock.connect_ex((self.ip, port.port)) == 0:
                 port.is_open = True
-                console.print("[green]Open")
 
-    def show_open_ports(self) -> None:
-        for port in self.ports:
-            if port.is_open:
-                console.print(f"[green]{port.port}")
+    def finish(self) -> None:
+        choice = Prompt.ask("Select option", choices=["dump", "print"], default="print")
+        if choice == "dump":
+            time = datetime.strftime(datetime.now(), "%H%M%S")
+            if not os.path.exists("dumps"):
+                os.mkdir("dumps")
+            with open(f"dumps/portaudit-{time}.txt", "w+") as f:
+                for port in self.ports:
+                    if port.is_open:
+                        f.write(f"{port.port}\n")
+        elif choice == "print":
+            for port in self.ports:
+                if port.is_open:
+                    console.print(f"[green]{port.port}")

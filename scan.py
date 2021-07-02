@@ -2,26 +2,15 @@
 
 from src.scanner import PortScanner
 from src.console import console
-from rich.prompt import Prompt
-import sys
 from typing import Optional, Callable, Any
 from threading import Thread
-from datetime import datetime
-
-
-def finish(scanner: PortScanner) -> None:
-    choice = Prompt.ask("Select option", choices=["dump", "print"], default="print")
-    if choice == "dump":
-        time = datetime.strftime(datetime.now(), "%H%M%S")
-        with open(f"portaudit-{time}.txt", "w+") as f:
-            for port in scanner.ports:
-                if port.is_open:
-                    f.write(f"{port.port}\n")
-    elif choice == "print":
-        scanner.show_open_ports()
+import sys
+import os
 
 
 def main(ip: str, timeout: Optional[int] = 1) -> None:
+    if timeout is None:
+        timeout = 1
     try:
         scanner = PortScanner(ip, timeout)
         threads = []
@@ -34,9 +23,9 @@ def main(ip: str, timeout: Optional[int] = 1) -> None:
         for thread in threads:
             thread.join()
 
-        finish(scanner)
+        scanner.finish()
     except KeyboardInterrupt:
-        finish(scanner)
+        scanner.finish()
 
 
 def argv_getter(idx, converter: Optional[Callable] = None) -> Any:
